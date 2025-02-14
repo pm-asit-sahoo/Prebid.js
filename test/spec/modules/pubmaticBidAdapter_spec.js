@@ -2661,6 +2661,7 @@ describe('PubMatic adapter', function () {
 
           expect(data.native).to.exist;
           expect(data.native.request).to.exist;
+          expect(data.banner.pos).to.equal(0);
         });
 
         it('Request params - should handle video and native format in single adunit', function() {
