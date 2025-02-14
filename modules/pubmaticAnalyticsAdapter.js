@@ -533,7 +533,7 @@ function executeBidWonLoggerCall(auctionId, adUnitId) {
   pixelURL += '&kgpv=' + enc(getValueForKgpv(winningBid, adUnitId));
   pixelURL += '&origbidid=' + enc(winningBid?.bidResponse?.partnerImpId || winningBid?.bidResponse?.prebidBidId || winningBid.bidId);
   pixelURL += '&di=' + enc(winningBid?.bidResponse?.dealId || OPEN_AUCTION_DEAL_ID);
-  const ds = winningBid.bidResponse?.meta ? getMetadata(winningBid.bidResponse.meta).ds : undefined;
+  const ds = winningBid.bidResponse?.meta ? getMetadata(winningBid.bidResponse.meta)?.ds : undefined;
   if (ds) {
     pixelURL += '&ds=' + enc(ds);
   }
@@ -549,13 +549,15 @@ function executeBidWonLoggerCall(auctionId, adUnitId) {
   (fskp != undefined) && (pixelURL += '&fskp=' + enc(fskp));
   if (floorData) {
     const floorRootValues = getFloorsCommonField(floorData.floorRequestData);
-    const { ffs, fsrc, fp, mv } = floorRootValues || {};
-    const params = { ffs, fsrc, fp, fmv: mv };
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined) {
-        pixelURL += `&${key}=${enc(value)}`;
-      }
-    });
+    if (floorRootValues) {
+      const { ffs, fsrc, fp, mv } = floorRootValues || {};
+      const params = { ffs, fsrc, fp, fmv: mv };
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          pixelURL += `&${key}=${enc(value)}`;
+        }
+      });
+    }
     const floorType = getFloorType(floorData.floorResponseData);
     if (floorType !== undefined) {
       pixelURL += '&ft=' + enc(floorType);
