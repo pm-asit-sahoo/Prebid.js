@@ -809,54 +809,156 @@ function _addImpressionFPD(imp, bid) {
   gpid && deepSetValue(imp, `ext.gpid`, gpid);
 }
 
+// function _addFloorFromFloorModule(impObj, bid) {
+//   let bidFloor = -1;
+//   // get lowest floor from floorModule
+//   if (typeof bid.getFloor === 'function' && !config.getConfig('pubmatic.disableFloors')) {
+//     [BANNER, VIDEO, NATIVE].forEach(mediaType => {
+//       if (impObj.hasOwnProperty(mediaType)) {
+//         let sizesArray = [];
+
+//         if (mediaType === 'banner') {
+//           if (impObj[mediaType].w && impObj[mediaType].h) {
+//             sizesArray.push([impObj[mediaType].w, impObj[mediaType].h]);
+//           }
+//           if (isArray(impObj[mediaType].format)) {
+//             impObj[mediaType].format.forEach(size => sizesArray.push([size.w, size.h]));
+//           }
+//         }
+
+//         if (sizesArray.length === 0) {
+//           sizesArray.push('*')
+//         }
+
+//         sizesArray.forEach(size => {
+//           let floorInfo = bid.getFloor({ currency: impObj.bidfloorcur, mediaType: mediaType, size: size });
+//           logInfo(LOG_WARN_PREFIX, 'floor from floor module returned for mediatype:', mediaType, ' and size:', size, ' is: currency', floorInfo.currency, 'floor', floorInfo.floor);
+//           if (isPlainObject(floorInfo) && floorInfo.currency === impObj.bidfloorcur && !isNaN(parseInt(floorInfo.floor))) {
+//             let mediaTypeFloor = parseFloat(floorInfo.floor);
+//             logInfo(LOG_WARN_PREFIX, 'floor from floor module:', mediaTypeFloor, 'previous floor value', bidFloor, 'Min:', Math.min(mediaTypeFloor, bidFloor));
+//             if (bidFloor === -1) {
+//               bidFloor = mediaTypeFloor;
+//             } else {
+//               bidFloor = Math.min(mediaTypeFloor, bidFloor)
+//             }
+//             logInfo(LOG_WARN_PREFIX, 'new floor value:', bidFloor);
+//           }
+//         });
+//       }
+//     });
+//   }
+//   // get highest from impObj.bidfllor and floor from floor module
+//   // as we are using Math.max, it is ok if we have not got any floor from floorModule, then value of bidFloor will be -1
+//   if (impObj.bidfloor) {
+//     logInfo(LOG_WARN_PREFIX, 'floor from floor module:', bidFloor, 'impObj.bidfloor', impObj.bidfloor, 'Max:', Math.max(bidFloor, impObj.bidfloor));
+//     bidFloor = Math.max(bidFloor, impObj.bidfloor)
+//   }
+
+//   // assign value only if bidFloor is > 0
+//   impObj.bidfloor = ((!isNaN(bidFloor) && bidFloor > 0) ? bidFloor : UNDEFINED);
+//   logInfo(LOG_WARN_PREFIX, 'new impObj.bidfloor value:', impObj.bidfloor);
+// }
+
+/**
+ * Helper function to verify that the floorInfo is valid.
+ * It checks that floorInfo is a plain object, its currency matches, and its floor value is a number.
+ */
+function isValidFloor(floorInfo, bidfloorCur) {
+  return (
+    isPlainObject(floorInfo) &&
+    floorInfo.currency === bidfloorCur &&
+    !isNaN(parseFloat(floorInfo.floor))
+  );
+}
+
+/**
+ * Modified function to assign bid floor values inside the specific impression media type objects.
+ * For banner:
+ *   - If a top-level size (w/h) exists, the bid floor is assigned to imp.banner.bidfloor.
+ *   - For each size in banner.format (if any), bidfloor is assigned on that size object.
+ * For video and native:
+ *   - The bid floor is assigned to imp.video.bidfloor or imp.native.bidfloor respectively.
+ *
+ * Note: No overall impObj.bidfloor is assigned.
+ *
+ */
 function _addFloorFromFloorModule(impObj, bid) {
-  let bidFloor = -1;
-  // get lowest floor from floorModule
+  // Check if the floor module is enabled and the getFloor function exists.
   if (typeof bid.getFloor === 'function' && !config.getConfig('pubmatic.disableFloors')) {
-    [BANNER, VIDEO, NATIVE].forEach(mediaType => {
-      if (impObj.hasOwnProperty(mediaType)) {
-        let sizesArray = [];
-
-        if (mediaType === 'banner') {
-          if (impObj[mediaType].w && impObj[mediaType].h) {
-            sizesArray.push([impObj[mediaType].w, impObj[mediaType].h]);
-          }
-          if (isArray(impObj[mediaType].format)) {
-            impObj[mediaType].format.forEach(size => sizesArray.push([size.w, size.h]));
-          }
+    
+    // Process the banner media type.
+    if (impObj.hasOwnProperty('banner')) {
+      // If the banner has a specific w/h assigned, get its floor and assign it to imp.banner.
+      if (impObj.banner.w && impObj.banner.h) {
+        let floorInfo = bid.getFloor({
+          currency: impObj.bidfloorcur,
+          mediaType: 'banner',
+          size: [impObj.banner.w, impObj.banner.h]
+        });
+        logInfo(
+          LOG_WARN_PREFIX,
+          'Banner floor from floor module for w:',
+          impObj.banner.w,
+          'h:',
+          impObj.banner.h,
+          'returned:',
+          floorInfo
+        );
+        if (isValidFloor(floorInfo, impObj.bidfloorcur)) {
+          // Assign bid floor inside the banner object.
+          impObj.banner.bidfloor = parseFloat(floorInfo.floor);
         }
-
-        if (sizesArray.length === 0) {
-          sizesArray.push('*')
-        }
-
-        sizesArray.forEach(size => {
-          let floorInfo = bid.getFloor({ currency: impObj.bidfloorcur, mediaType: mediaType, size: size });
-          logInfo(LOG_WARN_PREFIX, 'floor from floor module returned for mediatype:', mediaType, ' and size:', size, ' is: currency', floorInfo.currency, 'floor', floorInfo.floor);
-          if (isPlainObject(floorInfo) && floorInfo.currency === impObj.bidfloorcur && !isNaN(parseInt(floorInfo.floor))) {
-            let mediaTypeFloor = parseFloat(floorInfo.floor);
-            logInfo(LOG_WARN_PREFIX, 'floor from floor module:', mediaTypeFloor, 'previous floor value', bidFloor, 'Min:', Math.min(mediaTypeFloor, bidFloor));
-            if (bidFloor === -1) {
-              bidFloor = mediaTypeFloor;
-            } else {
-              bidFloor = Math.min(mediaTypeFloor, bidFloor)
-            }
-            logInfo(LOG_WARN_PREFIX, 'new floor value:', bidFloor);
+      }
+      
+      // Iterate over the banner.format array (if available) to assign a floor per banner size.
+      if (isArray(impObj.banner.format)) {
+        // For each size object, a bid floor is fetched and assigned.
+        impObj.banner.format.forEach(function(sizeObj) {
+          let floorInfo = bid.getFloor({
+            currency: impObj.bidfloorcur,
+            mediaType: 'banner',
+            size: [sizeObj.w, sizeObj.h]
+          });
+          logInfo(
+            LOG_WARN_PREFIX,
+            'Banner floor from floor module for format size:',
+            [sizeObj.w, sizeObj.h],
+            'returned:',
+            floorInfo
+          );
+          if (isValidFloor(floorInfo, impObj.bidfloorcur)) {
+            sizeObj.bidfloor = parseFloat(floorInfo.floor);
           }
         });
       }
-    });
+    }
+    
+    // Process the video media type by assigning its bid floor into imp.video.
+    if (impObj.hasOwnProperty('video')) {
+      let floorInfo = bid.getFloor({
+        currency: impObj.bidfloorcur,
+        mediaType: 'video',
+        size: '*' // Use a wildcard since size isn’t applicable for video.
+      });
+      logInfo(LOG_WARN_PREFIX, 'Video floor from floor module returned:', floorInfo);
+      if (isValidFloor(floorInfo, impObj.bidfloorcur)) {
+        impObj.video.bidfloor = parseFloat(floorInfo.floor);
+      }
+    }
+    
+    // Process the native media type by assigning its bid floor into imp.native.
+    if (impObj.hasOwnProperty('native')) {
+      let floorInfo = bid.getFloor({
+        currency: impObj.bidfloorcur,
+        mediaType: 'native',
+        size: '*' // Use a wildcard since size isn’t applicable for native.
+      });
+      logInfo(LOG_WARN_PREFIX, 'Native floor from floor module returned:', floorInfo);
+      if (isValidFloor(floorInfo, impObj.bidfloorcur)) {
+        impObj.native.bidfloor = parseFloat(floorInfo.floor);
+      }
+    }
   }
-  // get highest from impObj.bidfllor and floor from floor module
-  // as we are using Math.max, it is ok if we have not got any floor from floorModule, then value of bidFloor will be -1
-  if (impObj.bidfloor) {
-    logInfo(LOG_WARN_PREFIX, 'floor from floor module:', bidFloor, 'impObj.bidfloor', impObj.bidfloor, 'Max:', Math.max(bidFloor, impObj.bidfloor));
-    bidFloor = Math.max(bidFloor, impObj.bidfloor)
-  }
-
-  // assign value only if bidFloor is > 0
-  impObj.bidfloor = ((!isNaN(bidFloor) && bidFloor > 0) ? bidFloor : UNDEFINED);
-  logInfo(LOG_WARN_PREFIX, 'new impObj.bidfloor value:', impObj.bidfloor);
 }
 
 function _handleEids(payload, validBidRequests) {
