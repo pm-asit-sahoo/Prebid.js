@@ -860,70 +860,68 @@ function _addImpressionFPD(imp, bid) {
 // }
 
 /**
- * Helper function to verify that the floorInfo is valid.
- * It checks that floorInfo is a plain object, its currency matches, and its floor value is a number.
+ * Helper function verifying that floorInfo is valid.
+ * It checks that floorInfo is a plain object, the currency matches the expected one,
+ * and that the floor value is a valid number.
  */
-function isValidFloor(floorInfo, bidfloorCur) {
+function isValidFloor(floorInfo, bidFloorCur) {
   return (
     isPlainObject(floorInfo) &&
-    floorInfo.currency === bidfloorCur &&
+    floorInfo.currency === bidFloorCur &&
     !isNaN(parseFloat(floorInfo.floor))
   );
 }
 
 /**
- * Modified function to assign bid floor values inside the specific impression media type objects.
- * For banner:
- *   - If a top-level size (w/h) exists, the bid floor is assigned to imp.banner.bidfloor.
- *   - For each size in banner.format (if any), bidfloor is assigned on that size object.
- * For video and native:
- *   - The bid floor is assigned to imp.video.bidfloor or imp.native.bidfloor respectively.
+ * Modified function to retrieve and assign bid floor values per media type.
+ * Uses the currency from imp.bidfloorcur only when calling the floor module and for logging.
  *
- * Note: No overall impObj.bidfloor is assigned.
+ * • For banner:
+ *   - If a top-level size (w/h) exists, get its floor via getFloor and assign it to imp.banner.bidfloor.
+ *   - For each size in the banner.format array, assign the bid floor to that size object.
+ * • For video and native:
+ *   - The floor is assigned to imp.video.bidfloor and imp.native.bidfloor, respectively.
  *
+ * Note:
+ * - The bidfloorcur property is not added to any media type.
  */
 function _addFloorFromFloorModule(impObj, bid) {
-  // Check if the floor module is enabled and the getFloor function exists.
+  // Check if getFloor exists and floors are enabled.
   if (typeof bid.getFloor === 'function' && !config.getConfig('pubmatic.disableFloors')) {
-    
-    // Process the banner media type.
+
+    // --- Banner processing ---
     if (impObj.hasOwnProperty('banner')) {
-      // If the banner has a specific w/h assigned, get its floor and assign it to imp.banner.
+
+      // If a top-level banner width and height are provided, use them.
       if (impObj.banner.w && impObj.banner.h) {
-        let floorInfo = bid.getFloor({
+        var floorInfo = bid.getFloor({
           currency: impObj.bidfloorcur,
           mediaType: 'banner',
           size: [impObj.banner.w, impObj.banner.h]
         });
         logInfo(
           LOG_WARN_PREFIX,
-          'Banner floor from floor module for w:',
-          impObj.banner.w,
-          'h:',
-          impObj.banner.h,
-          'returned:',
+          'Banner floor for top-level size (' + impObj.banner.w + 'x' + impObj.banner.h + 
+          ') with currency ' + impObj.bidfloorcur + ' returned:',
           floorInfo
         );
         if (isValidFloor(floorInfo, impObj.bidfloorcur)) {
-          // Assign bid floor inside the banner object.
           impObj.banner.bidfloor = parseFloat(floorInfo.floor);
         }
       }
       
-      // Iterate over the banner.format array (if available) to assign a floor per banner size.
+      // Process each banner size in the format array, if available.
       if (isArray(impObj.banner.format)) {
-        // For each size object, a bid floor is fetched and assigned.
         impObj.banner.format.forEach(function(sizeObj) {
-          let floorInfo = bid.getFloor({
+          var floorInfo = bid.getFloor({
             currency: impObj.bidfloorcur,
             mediaType: 'banner',
             size: [sizeObj.w, sizeObj.h]
           });
           logInfo(
             LOG_WARN_PREFIX,
-            'Banner floor from floor module for format size:',
-            [sizeObj.w, sizeObj.h],
-            'returned:',
+            'Banner floor for format size (' + sizeObj.w + 'x' + sizeObj.h +
+            ') with currency ' + impObj.bidfloorcur + ' returned:',
             floorInfo
           );
           if (isValidFloor(floorInfo, impObj.bidfloorcur)) {
@@ -933,29 +931,37 @@ function _addFloorFromFloorModule(impObj, bid) {
       }
     }
     
-    // Process the video media type by assigning its bid floor into imp.video.
+    // --- Video processing ---
     if (impObj.hasOwnProperty('video')) {
-      let floorInfo = bid.getFloor({
+      var floorInfoVideo = bid.getFloor({
         currency: impObj.bidfloorcur,
         mediaType: 'video',
-        size: '*' // Use a wildcard since size isn’t applicable for video.
+        size: '*' // Use a wildcard since size may not be applicable for video.
       });
-      logInfo(LOG_WARN_PREFIX, 'Video floor from floor module returned:', floorInfo);
-      if (isValidFloor(floorInfo, impObj.bidfloorcur)) {
-        impObj.video.bidfloor = parseFloat(floorInfo.floor);
+      logInfo(
+        LOG_WARN_PREFIX,
+        'Video floor with currency ' + impObj.bidfloorcur + ' returned:',
+        floorInfoVideo
+      );
+      if (isValidFloor(floorInfoVideo, impObj.bidfloorcur)) {
+        impObj.video.bidfloor = parseFloat(floorInfoVideo.floor);
       }
     }
     
-    // Process the native media type by assigning its bid floor into imp.native.
+    // --- Native processing ---
     if (impObj.hasOwnProperty('native')) {
-      let floorInfo = bid.getFloor({
+      var floorInfoNative = bid.getFloor({
         currency: impObj.bidfloorcur,
         mediaType: 'native',
-        size: '*' // Use a wildcard since size isn’t applicable for native.
+        size: '*' // Use a wildcard for native.
       });
-      logInfo(LOG_WARN_PREFIX, 'Native floor from floor module returned:', floorInfo);
-      if (isValidFloor(floorInfo, impObj.bidfloorcur)) {
-        impObj.native.bidfloor = parseFloat(floorInfo.floor);
+      logInfo(
+        LOG_WARN_PREFIX,
+        'Native floor with currency ' + impObj.bidfloorcur + ' returned:',
+        floorInfoNative
+      );
+      if (isValidFloor(floorInfoNative, impObj.bidfloorcur)) {
+        impObj.native.bidfloor = parseFloat(floorInfoNative.floor);
       }
     }
   }
